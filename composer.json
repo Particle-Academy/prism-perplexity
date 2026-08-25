@@ -1,0 +1,54 @@
+{
+    "name": "particle-academy/prism-perplexity",
+    "description": "The rest of the Perplexity API for Prism — embeddings, direct search, and async deep research beyond the Agent API chat surface.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["laravel", "ai", "llm", "prism", "perplexity", "embeddings", "search"],
+    "authors": [
+        {
+            "name": "Wish Born",
+            "email": "wish@impact.do"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^12.61.1|^13.12.0",
+        "particle-academy/prism": ">=0.113 <1.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.30",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^3.0|^4.0",
+        "phpstan/phpstan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Prism\\Perplexity\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "@php vendor/bin/pest",
+        "types": "@php vendor/bin/phpstan analyse",
+        "format": "@php vendor/bin/pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Prism\\Perplexity\\PrismPerplexityServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
