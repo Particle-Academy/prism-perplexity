@@ -10,6 +10,11 @@ composer require particle-academy/prism-perplexity
 That is the whole setup. The package registers under the **same provider key** as Prism core,
 so `using('perplexity', …)` gains capabilities and nothing that already worked changes.
 
+> **Working on this package?** Read **[`AGENTS.md`](AGENTS.md)** first — the boundary
+> this package has to hold, the gates that must be green, and the traps that have
+> already caught someone.
+> `@link AGENTS.md`
+
 ## Embeddings
 
 Prism core throws `unsupportedProviderAction` for Perplexity embeddings. With this installed:
