@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Prism\Perplexity;
 
+use Closure;
+use Prism\Perplexity\Agent\AgentClient;
 use Prism\Perplexity\Handlers\Embeddings;
 use Prism\Perplexity\Handlers\Search;
 use Prism\Prism\Embeddings\Request as EmbeddingsRequest;
@@ -27,6 +29,11 @@ use Prism\Prism\Providers\Perplexity\Perplexity as BasePerplexity;
  */
 class Perplexity extends BasePerplexity
 {
+    public function agent(?Closure $sleeper = null): AgentClient
+    {
+        return new AgentClient($this->client(), $sleeper);
+    }
+
     #[\Override]
     public function embeddings(EmbeddingsRequest $request): EmbeddingsResponse
     {

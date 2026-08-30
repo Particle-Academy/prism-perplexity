@@ -77,10 +77,46 @@ An empty result list is an **answer**, not a failure.
 | Slug→preset translation, Agent API transport | Prism core |
 | Embeddings, contextualized embeddings | here |
 | Search API | here |
-| Async deep research | planned |
+| Durable Agent API lifecycle | here |
 
 The split follows the abstraction: core carries what fits "prompt in, answer out". Anything
 that is a genuinely different operation lives out here rather than distorting core to fit.
+
+## Durable Agent responses
+
+Long-running work has an explicit lifecycle instead of pretending a queued response is text:
+
+```php
+$agent = app(PrismManager::class)->resolve('perplexity')->agent();
+
+$queued = $agent->create('Research the Prism ecosystem', [
+    'preset' => 'deep-research',
+    'max_steps' => 8,
+    'models' => ['anthropic/claude-sonnet-4-6', 'openai/gpt-5.4'],
+    'tools' => [[
+        'type' => 'web_search',
+        'filters' => ['search_domain_filter' => ['prismphp.com']],
+    ]],
+]);
+
+$snapshot = $agent->retrieve($queued->id);
+$finished = $agent->wait($queued->id, maxAttempts: 60, intervalMilliseconds: 1000);
+$cancelled = $agent->cancel($queued->id);
+```
+
+Every snapshot carries a typed `AgentStatus`, an `AgentProtocol` discriminator, the resolved
+model, structured output, flattened annotations, the full provider usage/cost ledger, a typed
+error when present, and the unmodified response body in `raw`. Failed, incomplete, and cancelled
+runs are lifecycle results rather than transport exceptions. Malformed and non-successful HTTP
+responses still throw.
+
+`wait()` is deliberately bounded. Queue workers should normally persist the response id and
+retrieve it in a later job; the helper exists for short bounded waits, not indefinite polling.
+
+Perplexity documents create, retrieve and cancel for Agent responses, but does **not** document
+an endpoint that lists every Agent response. This package does not guess one. The older async
+Sonar API does have a list endpoint, but it is a separate legacy protocol and is not silently
+mixed with Agent response ids or statuses.
 
 ## Errors
 
