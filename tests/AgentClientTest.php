@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
+use Prism\Perplexity\Agent\AgentClient;
 use Prism\Perplexity\Agent\AgentProtocol;
 use Prism\Perplexity\Agent\AgentStatus;
 use Prism\Perplexity\Agent\AgentWaitTimedOut;
@@ -14,6 +15,53 @@ function agentPerplexity(): Perplexity
     /** @var Perplexity */
     return app(PrismManager::class)->resolve('perplexity');
 }
+
+/** The transport options the AgentClient was actually handed. */
+function agentTransportOptions(AgentClient $client): array
+{
+    $clientProperty = new ReflectionProperty($client, 'client');
+    $pending = $clientProperty->getValue($client);
+
+    $optionsProperty = new ReflectionProperty($pending, 'options');
+
+    return $optionsProperty->getValue($pending);
+}
+
+it('gives the long-running endpoint a timeout it can actually finish inside', function (): void {
+    // `agent()` built its client with NO options at all, so the transport kept
+    // Laravel's 30-second default -- on the one endpoint whose purpose is to run
+    // for minutes. A routine deep-research call was measured at 57-59 seconds,
+    // and the failure was cURL 28 with zero bytes received, which reads like a
+    // network hang rather than a ceiling that was always going to fire.
+    // Reported as #2.
+    //
+    // Asserted on the transport rather than through a faked response, because a
+    // fake never times out: a test that sends a request and checks it arrived
+    // would pass identically with no timeout set, which is the vacuous shape
+    // this package's own tests are written to avoid.
+    $options = agentTransportOptions(agentPerplexity()->agent());
+
+    expect($options['timeout'])->toBe(300);
+});
+
+it('lets the caller override the agent timeout', function (): void {
+    // The half that could not be worked around from outside the package. A
+    // default alone would leave every caller stuck with whatever we chose, and
+    // the reporter could not reach this knob at all.
+    $options = agentTransportOptions(agentPerplexity()->agent(null, ['timeout' => 900]));
+
+    expect($options['timeout'])->toBe(900);
+});
+
+it('keeps other caller options alongside the default timeout', function (): void {
+    // array_replace, not a bare default: an option the caller sets that is not
+    // `timeout` must survive, and the default must still apply to what they
+    // left out.
+    $options = agentTransportOptions(agentPerplexity()->agent(null, ['connect_timeout' => 5]));
+
+    expect($options['connect_timeout'])->toBe(5)
+        ->and($options['timeout'])->toBe(300);
+});
 
 it('creates a durable agent response with lossless options and metadata', function (): void {
     Http::fake(['api.perplexity.ai/*' => Http::response([
