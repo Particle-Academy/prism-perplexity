@@ -76,15 +76,6 @@ class Perplexity extends BasePerplexity
      * rather than bent into `text()`, since pretending a list of web results is
      * a completion would lose the structure that makes it worth having.
      *
-     * @param  string|list<string>  $query
-     * @param  array<string, mixed>  $options
-     * @return list<array<string, mixed>>
-     */
-    /**
-     * Types copied from `Search::handle()` rather than approximated. An earlier
-     * draft of this block guessed both, and PHPStan caught that `$query` had no
-     * value type and that the return is a LIST of result maps, not one map.
-     *
      * @param  string|list<string>  $query  One query, or several run together.
      * @param  array<string, mixed>  $options  Search parameters, sent to the endpoint.
      * @param  array<string, mixed>  $clientOptions  Transport options: timeout, connect_timeout.
