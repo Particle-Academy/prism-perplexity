@@ -90,9 +90,7 @@ Long-running work has an explicit lifecycle instead of pretending a queued respo
 $agent = app(PrismManager::class)->resolve('perplexity')->agent();
 
 $queued = $agent->create('Research the Prism ecosystem', [
-    'preset' => 'deep-research',
-    'max_steps' => 8,
-    'models' => ['anthropic/claude-sonnet-4-6', 'openai/gpt-5.4'],
+    'effort' => 'high',
     'tools' => [[
         'type' => 'web_search',
         'filters' => ['search_domain_filter' => ['prismphp.com']],
