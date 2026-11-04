@@ -35,6 +35,14 @@ final readonly class AgentResponse
         return $this->status === AgentStatus::Completed;
     }
 
+    /** Why the run stopped early, such as max_output_tokens. Null when the provider gave no reason. */
+    public function incompleteReason(): ?string
+    {
+        $reason = data_get($this->raw, 'incomplete_details.reason');
+
+        return is_string($reason) ? $reason : null;
+    }
+
     public function text(): string
     {
         $parts = [];

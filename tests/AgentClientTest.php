@@ -134,13 +134,42 @@ it('returns typed failures and cancellation as lifecycle results', function (str
         ->and($response->error?->code)->toBe('stopped');
 })->with(['failed', 'cancelled', 'incomplete']);
 
-it('cancels through the documented endpoint', function (): void {
+it('reads why a run stopped early, and reports no reason rather than guessing', function (array $details, ?string $expected): void {
     Http::fake(['api.perplexity.ai/*' => Http::response([
-        'id' => 'resp_123', 'status' => 'cancelled', 'model' => 'openai/gpt-5.4', 'output' => [],
+        'id' => 'resp_123', 'status' => 'incomplete', 'output' => [], ...$details,
     ])]);
 
-    agentPerplexity()->agent()->cancel('resp_123');
+    expect(agentPerplexity()->agent()->retrieve('resp_123')->incompleteReason())->toBe($expected);
+})->with([
+    'reason given' => [['incomplete_details' => ['reason' => 'max_output_tokens']], 'max_output_tokens'],
+    'no details' => [[], null],
+    'null details' => [['incomplete_details' => null], null],
+    'non-string reason' => [['incomplete_details' => ['reason' => ['nested']]], null],
+]);
 
+it('cancels through the documented endpoint', function (): void {
+    Http::fake(['api.perplexity.ai/*' => Http::response([
+        'id' => 'resp_123', 'status' => 'cancelling', 'model' => 'openai/gpt-5.4', 'output' => [],
+    ])]);
+
+    $response = agentPerplexity()->agent()->cancel('resp_123');
+
+    // Cancellation is asynchronous: a 200 says it has started, not that it finished.
+    expect($response->status)->toBe(AgentStatus::Cancelling)
+        ->and($response->isTerminal())->toBeFalse()
+        ->and($response->isSuccessful())->toBeFalse();
     Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/v1/agent/resp_123/cancel'));
+});
+
+it('keeps waiting through cancelling until the run is cancelled', function (): void {
+    Http::fake(['api.perplexity.ai/*' => Http::sequence()
+        ->push(['id' => 'resp_123', 'status' => 'cancelling', 'output' => []])
+        ->push(['id' => 'resp_123', 'status' => 'cancelled', 'output' => []])]);
+
+    $response = agentPerplexity()->agent(fn (int $milliseconds) => null)->wait('resp_123', maxAttempts: 2);
+
+    expect($response->status)->toBe(AgentStatus::Cancelled)
+        ->and($response->isTerminal())->toBeTrue();
+    Http::assertSentCount(2);
 });

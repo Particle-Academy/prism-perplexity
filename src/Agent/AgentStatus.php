@@ -11,6 +11,8 @@ enum AgentStatus: string
     case Completed = 'completed';
     case Failed = 'failed';
     case Incomplete = 'incomplete';
+    /** Cancel was accepted but hasn't finished, so this isn't terminal; keep polling for Cancelled. */
+    case Cancelling = 'cancelling';
     case Cancelled = 'cancelled';
 
     public function isTerminal(): bool
