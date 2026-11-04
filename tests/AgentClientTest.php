@@ -8,6 +8,7 @@ use Prism\Perplexity\Agent\AgentProtocol;
 use Prism\Perplexity\Agent\AgentStatus;
 use Prism\Perplexity\Agent\AgentWaitTimedOut;
 use Prism\Perplexity\Perplexity;
+use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\PrismManager;
 
 function agentPerplexity(): Perplexity
@@ -148,16 +149,20 @@ it('reads why a run stopped early, and reports no reason rather than guessing', 
 ]);
 
 it('cancels through the documented endpoint', function (): void {
-    Http::fake(['api.perplexity.ai/*' => Http::response([
-        'id' => 'resp_123', 'status' => 'cancelling', 'model' => 'openai/gpt-5.4', 'output' => [],
-    ])]);
+    // The documented 200 body, exactly: only response_id and status, no id, model, output or usage.
+    Http::fake(['api.perplexity.ai/*' => Http::response(['response_id' => 'resp_123', 'status' => 'cancelling'])]);
 
     $response = agentPerplexity()->agent()->cancel('resp_123');
 
     // Cancellation is asynchronous: a 200 says it has started, not that it finished.
-    expect($response->status)->toBe(AgentStatus::Cancelling)
+    expect($response->id)->toBe('resp_123')
+        ->and($response->status)->toBe(AgentStatus::Cancelling)
         ->and($response->isTerminal())->toBeFalse()
-        ->and($response->isSuccessful())->toBeFalse();
+        ->and($response->isSuccessful())->toBeFalse()
+        ->and($response->model)->toBeNull()
+        ->and($response->output)->toBe([])
+        ->and($response->usage)->toBe([])
+        ->and($response->raw)->toBe(['response_id' => 'resp_123', 'status' => 'cancelling']);
     Http::assertSent(fn ($request): bool => $request->method() === 'POST'
         && str_ends_with($request->url(), '/v1/agent/resp_123/cancel'));
 });
@@ -172,4 +177,22 @@ it('keeps waiting through cancelling until the run is cancelled', function (): v
     expect($response->status)->toBe(AgentStatus::Cancelled)
         ->and($response->isTerminal())->toBeTrue();
     Http::assertSentCount(2);
+});
+
+it('refuses a cancel acknowledgement with no response identifier', function (): void {
+    Http::fake(['api.perplexity.ai/*' => Http::response(['status' => 'cancelling'])]);
+
+    expect(fn () => agentPerplexity()->agent()->cancel('resp_123'))->toThrow(PrismException::class, 'invalid_response');
+});
+
+it('reads response_id only on cancel, never on retrieve', function (): void {
+    Http::fake(['api.perplexity.ai/*' => Http::response(['response_id' => 'resp_123', 'status' => 'in_progress', 'output' => []])]);
+
+    expect(fn () => agentPerplexity()->agent()->retrieve('resp_123'))->toThrow(PrismException::class, 'invalid_response');
+});
+
+it('still accepts a cancel acknowledgement that names the run id', function (): void {
+    Http::fake(['api.perplexity.ai/*' => Http::response(['id' => 'resp_123', 'status' => 'cancelling'])]);
+
+    expect(agentPerplexity()->agent()->cancel('resp_123')->id)->toBe('resp_123');
 });
