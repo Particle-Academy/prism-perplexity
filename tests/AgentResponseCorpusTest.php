@@ -33,13 +33,19 @@ function agentResponseCorpus(): array
         JSON_THROW_ON_ERROR,
     );
 
+    // Keep the exact provider JSON containers, including {} versus [].
+    $wire = json_decode((string) file_get_contents(__DIR__.'/fixtures/perplexity-agent-response.json'), false, 512, JSON_THROW_ON_ERROR);
+    foreach ($document['cases'] as $index => &$case) {
+        $case['body'] = $wire->cases[$index]->body;
+    }
+    unset($case);
+
     return $document['cases'];
 }
 
 /**
- * `retrieve` rather than `create`, deliberately: it is the call the polling
- * loop makes, it sends no body of its own, and so each row records the PARSE
- * and nothing about the request that provoked it.
+ * Legacy rows default to retrieve; new rows also test cancel-only alias and
+ * identity handling and create's independent response contract.
  *
  * @param  array<string, mixed>  $case
  * @return array<string, mixed>
@@ -47,10 +53,16 @@ function agentResponseCorpus(): array
 function parseAgentResponse(array $case): array
 {
     $factory = new Factory;
-    $factory->fake(['*' => $factory->response($case['body'], $case['http_status'])]);
+    $factory->preventStrayRequests();
+    $factory->fake(['*' => $factory->response(json_encode($case['body'], JSON_THROW_ON_ERROR), $case['http_status'], ['Content-Type' => 'application/json'])]);
 
     try {
-        $response = (new AgentClient($factory->baseUrl('https://api.perplexity.ai')))->retrieve('resp_probe');
+        $client = new AgentClient($factory->baseUrl('https://api.perplexity.ai'));
+        $response = match ($case['operation'] ?? 'retrieve') {
+            'retrieve' => $client->retrieve('resp_probe'),
+            'cancel' => $client->cancel('resp_probe'),
+            'create' => $client->create('synthetic'),
+        };
     } catch (PrismException $exception) {
         return [
             'refused' => true,
@@ -64,7 +76,7 @@ function parseAgentResponse(array $case): array
         ];
     }
 
-    return [
+    $parsed = [
         'refused' => false,
         'id' => $response->id,
         'status' => $response->status->value,
@@ -82,10 +94,16 @@ function parseAgentResponse(array $case): array
         ],
         'text' => $response->text(),
     ];
+
+    if ($case['project_incomplete_reason'] ?? false) {
+        $parsed['incomplete_reason'] = $response->incompleteReason();
+    }
+
+    return $parsed;
 }
 
 it('is the whole suite, not a subset someone trimmed to green', function (): void {
-    expect(agentResponseCorpus())->toHaveCount(17);
+    expect(agentResponseCorpus())->toHaveCount(45);
 });
 
 it('still parses each body the way the corpus recorded', function (array $case): void {

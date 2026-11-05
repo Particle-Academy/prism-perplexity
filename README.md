@@ -99,7 +99,7 @@ $queued = $agent->create('Research the Prism ecosystem', [
 
 $snapshot = $agent->retrieve($queued->id);
 $finished = $agent->wait($queued->id, maxAttempts: 60, intervalMilliseconds: 1000);
-$cancelled = $agent->cancel($queued->id);
+$acknowledgement = $agent->cancel($queued->id);
 ```
 
 Every snapshot carries a typed `AgentStatus`, an `AgentProtocol` discriminator, the resolved
@@ -107,6 +107,16 @@ model, structured output, flattened annotations, the full provider usage/cost le
 error when present, and the unmodified response body in `raw`. Failed, incomplete, and cancelled
 runs are lifecycle results rather than transport exceptions. Malformed and non-successful HTTP
 responses still throw.
+
+`cancel($id)` acknowledges a cancellation request: `cancelling` is neither terminal nor
+successful. The acknowledgement's `response_id` (or legacy `id`, only when `response_id`
+is absent) must match the requested ID exactly. A malformed or mismatched acknowledgement
+throws `invalid_response`; cancellation state is uncertain, so call `retrieve($id)` to
+check it. The client does not retry the cancellation automatically. `create()` and
+`retrieve()` continue to use their own `id` field, and `raw` keeps the provider body.
+
+`incompleteReason()` returns the provider's string `incomplete_details.reason`, including
+an empty string, or `null` when absent or malformed.
 
 `wait()` is deliberately bounded. Queue workers should normally persist the response id and
 retrieve it in a later job; the helper exists for short bounded waits, not indefinite polling.
