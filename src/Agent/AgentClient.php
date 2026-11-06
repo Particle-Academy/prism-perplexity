@@ -35,7 +35,8 @@ final class AgentClient
 
     public function cancel(string $id): AgentResponse
     {
-        return $this->map($this->client->post('/v1/agent/'.rawurlencode($id).'/cancel'));
+        // The cancel acknowledgement names the run `response_id`, unlike every other Agent body.
+        return $this->map($this->client->post('/v1/agent/'.rawurlencode($id).'/cancel'), 'response_id', $id);
     }
 
     public function wait(string $id, int $maxAttempts = 60, int $intervalMilliseconds = 1000): AgentResponse
@@ -58,7 +59,7 @@ final class AgentClient
         throw new AgentWaitTimedOut($id, $maxAttempts);
     }
 
-    private function map(Response $response): AgentResponse
+    private function map(Response $response, string $idKey = 'id', ?string $expectedCancellationId = null): AgentResponse
     {
         $data = $response->json();
         if (! is_array($data)) {
@@ -74,9 +75,13 @@ final class AgentClient
         }
 
         $status = AgentStatus::tryFrom((string) data_get($data, 'status'));
-        $id = data_get($data, 'id');
+        $id = array_key_exists($idKey, $data) ? $data[$idKey] : data_get($data, 'id');
         if ($status === null || ! is_string($id) || $id === '') {
             $this->fail($response, 'invalid_response', 'The Agent API response is missing a recognized status or response id.');
+        }
+
+        if ($expectedCancellationId !== null && $id !== $expectedCancellationId) {
+            $this->fail($response, 'invalid_response', 'The cancellation acknowledgement identifies a different run. Cancellation state is uncertain. Use retrieve() with the requested ID to check its state.');
         }
 
         $output = array_values(array_filter((array) data_get($data, 'output', []), 'is_array'));
