@@ -17,12 +17,22 @@ class PrismPerplexityServiceProvider extends ServiceProvider
         // this provider extends the core class, nothing that worked before
         // stops working — text, structured and streaming are inherited
         // untouched and embeddings and search are added.
+        //
+        // The third argument asks for that replacement explicitly. Core now
+        // refuses to let extend() overwrite a name that is already registered,
+        // built-ins included, unless the caller says so — otherwise any package
+        // could silently take over a provider and receive its credentials.
+        // It is POSITIONAL on purpose: releases of core before that check have
+        // a two-parameter extend(), and PHP ignores an extra positional
+        // argument to a user method, whereas a named `replace:` would throw
+        // "Unknown named parameter" there. One call works on both.
         $this->app->make(PrismManager::class)->extend(
             'perplexity',
             fn ($app, array $config): Perplexity => new Perplexity(
                 apiKey: (string) ($config['api_key'] ?? ''),
                 url: (string) ($config['url'] ?? 'https://api.perplexity.ai'),
             ),
+            true,
         );
     }
 }

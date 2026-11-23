@@ -2,3 +2,17 @@ parameters:
     level: 6
     paths:
         - src
+    ignoreErrors:
+        # PrismPerplexityServiceProvider passes extend() a third, positional
+        # `true` (replace the built-in) that only core releases carrying the
+        # explicit-replace check (particle-academy/prism#163) declare. On older
+        # core PHP ignores the extra argument, which is the point: one call
+        # works across the whole supported range. PHPStan can only see the core
+        # that is installed, so on an older one it counts three arguments
+        # against two. Scoped to that one file and identifier, and not reported
+        # when unmatched, because on a core with the check there is nothing to
+        # ignore. Remove once the core floor in composer.json includes #163.
+        -
+            identifier: arguments.count
+            path: src/PrismPerplexityServiceProvider.php
+            reportUnmatched: false
