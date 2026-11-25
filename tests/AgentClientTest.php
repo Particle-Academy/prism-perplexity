@@ -72,7 +72,7 @@ it('creates a durable agent response with lossless options and metadata', functi
     ])]);
 
     $response = agentPerplexity()->agent()->create('Research Prism', [
-        'models' => ['openai/gpt-5.4', 'anthropic/claude-sonnet-4-6'],
+        'models' => ['openai/gpt-5.4', 'anthropic/claude-sonnet-5-5'],
         'max_steps' => 8,
         'store' => true,
         'reasoning' => ['effort' => 'high'],
@@ -93,7 +93,7 @@ it('creates a durable agent response with lossless options and metadata', functi
 
 it('retrieves and maps a completed response without losing annotations', function (): void {
     Http::fake(['api.perplexity.ai/*' => Http::response([
-        'id' => 'resp_123', 'status' => 'completed', 'model' => 'anthropic/claude-sonnet-4-6',
+        'id' => 'resp_123', 'status' => 'completed', 'model' => 'anthropic/claude-sonnet-5-5',
         'created_at' => 123,
         'output' => [['type' => 'message', 'content' => [[
             'type' => 'output_text', 'text' => 'Done.',
